@@ -1,0 +1,93 @@
+<h1>Hi {{ client_name }},</h1>
+<p>Thanks for requesting a quote from us. Please see the details of our offer below.</p>
+<table class="attribute-list" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td class="attribute-list-container">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td class="attribute-list-item"><strong>Details:</strong> {{ origin }} to {{ destination }} | {{ service_type }} | {{ load_type }}</td>
+        </tr>
+        <tr>
+          <td class="attribute-list-item"><strong>Valid Until:</strong> {{ valid_until }}</td>
+        </tr>
+        <tr>
+          <td class="attribute-list-item"><strong>Quote ID:</strong> {{ quote_reference }}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<!-- Action -->
+<table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center">
+      <!-- Border based button https://litmus.com/blog/a-guide-to-bulletproof-buttons-in-email-design -->
+      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center">
+            <table border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td>
+                  <a href="{{action_url}}" class="button button--green" target="_blank">Proceed with Booking</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table class="purchase" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td>
+      <h3>{{ quote_reference }}</h3>
+    </td>
+    <td>
+      <h3 class="align-right">{{ date }}</h3>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <table class="purchase_content" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <th class="purchase_heading">
+            <p>Details</p>
+          </th>
+          <th class="purchase_heading">
+            <p class="align-right">Amount</p>
+          </th>
+        </tr>
+        {{#each quote_details}}
+        <tr>
+          <td class="attribute-list-item"><strong>Freight Cost:</strong> {{ currency }}{{ freight_cost }}</td>
+        </tr>
+        <tr>
+          <td class="attribute-list-item"><strong>Customs & Other Charges:</strong> {{ currency }}{{ customs_other_charges }}</td>
+        </tr>
+        {{/each}}
+        <tr>
+          <td width="80%" class="purchase_footer" valign="middle">
+            <p class="purchase_total purchase_total--label">Total</p>
+          </td>
+          <td width="20%" class="purchase_footer" valign="middle">
+            <p class="purchase_total">{{ currency }}{{ total_cost }}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<p>If you have any questions about this quote, simply reply to this email or reach out to our <a href="{{support_url}}">support team</a> for help.</p>
+<p>Cheers,
+  <br>The {{ client_company }} Team</p>
+<!-- Sub copy -->
+<table class="body-sub">
+  <tr>
+    <td>
+      <p class="sub">Powered by Carrysight</p>
+      <p>If you’re having trouble with the button above, copy and paste the URL below into your web browser.</p>
+      <p class="sub">{{ action_url }}</p>
+    </td>
+  </tr>
+</table>
