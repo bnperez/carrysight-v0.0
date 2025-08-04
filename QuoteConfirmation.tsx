@@ -13,6 +13,7 @@ interface Quote {
   currency: string;
   totalCost: number;
   customerEmail: string;
+  status?: string;
   acceptedAt?: string;
   salesperson?: {
     name: string;
@@ -38,6 +39,10 @@ export function QuoteConfirmation({ quoteId, token }: QuoteConfirmationProps) {
     console.log('Quote ID:', quoteId, 'Token:', token);
     loadQuoteDetails();
   }, [quoteId, token]);
+
+  useEffect(() => {
+    setConfirmed(quote?.status === 'accepted');
+  }, [quote]);
 
   const loadQuoteDetails = async () => {
     try {
@@ -69,7 +74,6 @@ export function QuoteConfirmation({ quoteId, token }: QuoteConfirmationProps) {
       console.log('✅ Quote details loaded:', data);
       
       setQuote(data.quote);
-      setConfirmed(data.quote?.status === 'accepted');
     } catch (err) {
       console.error('❌ Error loading quote details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load quote details');
@@ -107,7 +111,6 @@ export function QuoteConfirmation({ quoteId, token }: QuoteConfirmationProps) {
       const data = await response.json();
       console.log('✅ Quote confirmed successfully:', data);
       
-      setConfirmed(true);
       if (data.quote) {
         setQuote(data.quote);
       }
