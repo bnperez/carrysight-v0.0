@@ -1,242 +1,219 @@
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { CheckCircle, Clock, FileText, Mail, Phone, Truck, AlertCircle, Loader2 } from "lucide-react";
-import { projectId, publicAnonKey } from "../utils/supabase/info";
-
-interface Quote {
-  quoteReference: string;
-  origin: string;
-  destination: string;
-  mode: string;
-  currency: string;
-  totalCost: number;
-  customerEmail: string;
-  status?: string;
-  acceptedAt?: string;
-  salesperson?: {
-    name: string;
-    email: string;
-    phone: string;
-  };
-}
+import { CheckCircle, Mail, Phone, Clock, ArrowRight, FileText, Truck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner@2.0.3";
+import logoImage from "figma:asset/c2bc6af4ad20962b0ae56b912ca8583b4062e1d5.png";
+import { projectId } from '../utils/supabase/info';
 
 interface QuoteConfirmationProps {
   quoteId: string;
   token: string;
 }
 
+interface Quote {
+  id: string;
+  quoteReference: string;
+  status: string;
+  customerName: string;
+  customerEmail: string;
+  customerCompany: string;
+  salesperson: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  origin: string;
+  destination: string;
+  mode: string;
+  totalCost: number;
+  currency: string;
+  acceptedAt?: string;
+}
+
 export function QuoteConfirmation({ quoteId, token }: QuoteConfirmationProps) {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('🔍 QuoteConfirmation component mounted');
-    console.log('Quote ID:', quoteId, 'Token:', token);
-    loadQuoteDetails();
-  }, [quoteId, token]);
+    const confirmQuote = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  useEffect(() => {
-    setConfirmed(quote?.status === 'accepted');
-  }, [quote]);
+        console.log('=== QUOTE CONFIRMATION START ===');
+        console.log('Quote confirmation request:', { 
+          quoteId, 
+          token: token.substring(0, 8) + '...',
+          fullTokenLength: token.length 
+        });
 
-  const loadQuoteDetails = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      console.log('📡 Loading quote details...');
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-c41ebbe0/quotes/${quoteId}/${token}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+        // Call the confirmation endpoint
+        const confirmUrl = `https://${projectId}.supabase.co/functions/v1/make-server-c41ebbe0/quotes/${quoteId}/${token}/confirm`;
+        console.log('Calling confirmation URL:', confirmUrl);
 
-      console.log('📡 Quote details response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Failed to load quote details:', errorText);
-        throw new Error(`Failed to load quote details: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Quote details loaded:', data);
-      
-      setQuote(data.quote);
-    } catch (err) {
-      console.error('❌ Error loading quote details:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load quote details');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleConfirmQuote = async () => {
-    try {
-      setIsConfirming(true);
-      setError(null);
-      
-      console.log('📡 Confirming quote...');
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-c41ebbe0/quotes/${quoteId}/${token}/confirm`,
-        {
+        const response = await fetch(confirmUrl, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json',
-          },
+            'Content-Type': 'application/json'
+          }
+          // NO Authorization header needed - endpoint is now public with token validation
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Raw error response:', errorText);
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch (parseError) {
+            console.error('Failed to parse error response as JSON:', parseError);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+          
+          console.error('Parsed error data:', errorData);
+          throw new Error(errorData.error || `HTTP ${response.status}: Failed to confirm quote`);
         }
-      );
 
-      console.log('📡 Quote confirmation response status:', response.status);
+        const resultText = await response.text();
+        console.log('Raw success response:', resultText);
+        
+        let result;
+        try {
+          result = JSON.parse(resultText);
+        } catch (parseError) {
+          console.error('Failed to parse success response as JSON:', parseError);
+          throw new Error('Invalid response format from server');
+        }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Failed to confirm quote:', errorText);
-        throw new Error(`Failed to confirm quote: ${response.status} ${errorText}`);
+        console.log('Parsed result:', result);
+        
+        if (result.success) {
+          setQuote(result.quote);
+          setIsConfirmed(true);
+          toast.success('Quote confirmed successfully!');
+          console.log('✅ Quote confirmation successful');
+        } else {
+          throw new Error(result.error || 'Quote confirmation failed');
+        }
+
+      } catch (error) {
+        console.error('❌ Quote confirmation error:', error);
+        console.error('Error stack:', error.stack);
+        setError(error.message || 'Failed to confirm quote');
+        toast.error('Failed to confirm quote');
+      } finally {
+        setIsLoading(false);
+        console.log('=== QUOTE CONFIRMATION END ===');
       }
+    };
 
-      const data = await response.json();
-      console.log('✅ Quote confirmed successfully:', data);
-      
-      if (data.quote) {
-        setQuote(data.quote);
-      }
-    } catch (err) {
-      console.error('❌ Error confirming quote:', err);
-      setError(err instanceof Error ? err.message : 'Failed to confirm quote');
-    } finally {
-      setIsConfirming(false);
+    if (quoteId && token) {
+      console.log('Starting quote confirmation process...');
+      confirmQuote();
+    } else {
+      console.error('Missing quoteId or token:', { quoteId, token });
+      setError('Invalid confirmation link - missing quote ID or token');
+      setIsLoading(false);
     }
-  };
+  }, [quoteId, token]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <h2 className="mb-2">Loading Quote Details...</h2>
-            <p className="text-sm text-muted-foreground">
-              Please wait while we load your quote information.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <div className="relative mb-6">
+                <img 
+                  src={logoImage} 
+                  alt="Carrysight Logo" 
+                  className="h-12 w-auto mx-auto opacity-50"
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-75" />
+                </div>
+              </div>
+              <h3 className="mb-2">Confirming Quote</h3>
+              <p className="text-muted-foreground">
+                Please wait while we process your quote confirmation...
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-red-200 bg-red-50">
-          <CardContent className="p-6 text-center">
-            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
-            <h2 className="text-red-900 mb-2">Error Loading Quote</h2>
-            <p className="text-sm text-red-800 mb-4">{error}</p>
-            <Button 
-              onClick={loadQuoteDetails}
-              variant="outline"
-              className="border-red-300 text-red-700 hover:bg-red-100"
-            >
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!quote) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-yellow-200 bg-yellow-50">
-          <CardContent className="p-6 text-center">
-            <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-4" />
-            <h2 className="text-yellow-900 mb-2">Quote Not Found</h2>
-            <p className="text-sm text-yellow-800">
-              The quote you're looking for could not be found or may have expired.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full">
+          <Card className="border-red-200">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="h-8 w-8 text-red-600" />
+              </div>
+              <h3 className="mb-2 text-red-900">Confirmation Failed</h3>
+              <p className="text-red-700 mb-4">
+                {error}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                If you continue to experience issues, please contact our support team.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-gradient-turquoise-blue mb-2">Carrysight</h1>
-            <p className="text-muted-foreground">Freight Quote Confirmation</p>
+      {/* Header */}
+      <div className="border-b bg-white">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center gap-3">
+            <img src={logoImage} alt="Carrysight" className="h-8 w-auto" />
+            <div>
+              <h1 className="text-xl">Quote Confirmed</h1>
+              <p className="text-sm text-muted-foreground">Modernizing Freight</p>
+            </div>
           </div>
+        </div>
+      </div>
 
-          {/* Confirmation Status */}
-          {confirmed ? (
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-green-900 mb-2">Quote Accepted Successfully!</h2>
-                    <p className="text-green-800 mb-4">
-                      Thank you for accepting our freight quote <strong>{quoteId}</strong>. 
-                      We've sent you a confirmation email with next steps and required documents.
-                    </p>
-                    <Badge variant="outline" className="border-green-500 text-green-700">
-                      Quote Confirmed at {new Date().toLocaleString()}
-                    </Badge>
-                  </div>
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="space-y-6">
+          {/* Success Banner */}
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <FileText className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-blue-900 mb-2">Confirm Your Freight Quote</h2>
-                    <p className="text-blue-800 mb-4">
-                      Please review the quote details below and click "Accept Quote" to proceed with your shipment.
-                    </p>
-                    <Button 
-                      onClick={handleConfirmQuote}
-                      disabled={isConfirming}
-                      className="btn-turquoise-solid"
-                    >
-                      {isConfirming ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Confirming...
-                        </>
-                      ) : (
-                        'Accept Quote'
-                      )}
-                    </Button>
-                  </div>
+                <div className="flex-1">
+                  <h2 className="text-green-900 mb-2">Quote Accepted Successfully!</h2>
+                  <p className="text-green-800 mb-4">
+                    Thank you for accepting our freight quote <strong>{quoteId}</strong>. 
+                    We've sent you a confirmation email with next steps and required documents.
+                  </p>
+                  <Badge variant="outline" className="border-green-500 text-green-700">
+                    Quote Confirmed at {new Date().toLocaleString()}
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Quote Details */}
           {quote && (
@@ -258,8 +235,8 @@ export function QuoteConfirmation({ quoteId, token }: QuoteConfirmationProps) {
                     <div>
                       <span className="text-muted-foreground">Status:</span>
                       <div>
-                        <Badge className={confirmed ? "bg-green-100 text-green-800 border-green-200" : "bg-blue-100 text-blue-800 border-blue-200"}>
-                          {confirmed ? 'Accepted' : 'Pending'}
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
+                          Accepted
                         </Badge>
                       </div>
                     </div>
@@ -280,7 +257,7 @@ export function QuoteConfirmation({ quoteId, token }: QuoteConfirmationProps) {
                     <div>
                       <span className="text-muted-foreground">Confirmed:</span>
                       <div className="font-medium">
-                        {quote.acceptedAt ? new Date(quote.acceptedAt).toLocaleDateString() : (confirmed ? 'Just now' : 'Not yet')}
+                        {quote.acceptedAt ? new Date(quote.acceptedAt).toLocaleDateString() : 'Just now'}
                       </div>
                     </div>
                   </div>
